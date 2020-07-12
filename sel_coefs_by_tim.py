@@ -22,29 +22,22 @@ from collections import OrderedDict
 
 output_path='/Users/lwoo0005/Documents/Laura_stuff/H_pylori_project/'
 
-#STEP 1: Find the transformation rate
-# This is a massive simplification of Tim's model, but because the data are
-# approximately linear, we can assume the transformation rate is linear as well
+# Find the transformation rate using neutral allele trajectory.
+# Data are approximately linear for experimental window
+# so we can assume the transformation rate is linear as well
 
 x_neutrals=np.array([a*23.1 for a in [0,0,0,2,2,2,4,4,4,6,6,6,7,7,7]])
 x_neutral=np.array([float(a*7*3.33) for a in [0,2,4,6,7]])
 y_neutral=np.array([a*0.01 for a in [0,0,0,0.958,1.271,0.617,2.666,2.567,2.266,3.301,4.087,2.176,3.284, 4.834,4.117]])
-#y_neutral2=np.array([a*0.01 for a in [0,0,0,0.323,0.093,0.077,1.098,2.075,0.859,2.884,2.712,2.301,3.40,2.311,2.685]])
 neutral_avg=[np.mean(y_neutral[0:3]), np.mean(y_neutral[3:6]), np.mean(y_neutral[6:9]), np.mean(y_neutral[9:12]), np.mean(y_neutral[12:15])]
 rep_1=(y_neutral[0::3])
 rep_2=(y_neutral[1::3])
 rep_3=(y_neutral[2::3])
 
-#This line to change to independent reps
-neutral_avg=rep_1
+#This line to change to independent reps, if required
+#neutral_avg=rep_1
 
-"""
-z = np.polyfit(x_neutral,neutral_avg,1, full=True)
-#z = np.polyfit(x_neutrals,y_neutral,1, full=True)
-"""
-
-
-
+# Slope and 95% CI around slope
 x_neutral = x_neutral[:,np.newaxis]
 ga,SSE,_,_=np.linalg.lstsq(x_neutral, neutral_avg)
 
@@ -56,6 +49,8 @@ if ga_down <= 0:
     ga_down = 0
 lower_bound=[ga_down*a*23.1 for a in [0,2,4,6,7]]
 upper_bound=[ga_up*a*23.1 for a in [0,2,4,6,7]]
+
+#Shows neutral allele trajectory, if desired
 """
 f, ax =plt.subplots(nrows=1, ncols=1, figsize=(13,6))
 #ax.plot(x_neutrals, y_neutral, label="Neutral allele average (observed)", marker='o', linestyle="None", color='green')
@@ -69,20 +64,7 @@ plt.show()
 #plt.close()
 
 
-"""
-f, ax =plt.subplots(nrows=1, ncols=1, figsize=(13,6))
-ax.plot(x_neutral, neutral_avg, label="Neutral allele average (observed)", marker='o', linestyle="None", color='green')
-ax.plot(x_neutral,ga*x_neutral, 'r-')
-ax.fill_between(np.array([a*23.1 for a in [0,2,4,6,7]]), lower_bound, upper_bound, color='green', alpha=0.5)
-
-plt.show()
-plt.savefig(output_path+"/Poster_pics/Neutral_allele_trajectory.png", dpi=600)
-plt.close()
-"""
-
-
-#Perform sel_coef calculation for all 4 time points and derive a CI for each
-#gene, for each population
+#Perform selection coeffient calculation and derive a CI for each gene per population
 
 # Open the appropriate table and make a dataframe from the columns that
 # indicate each abx-free timepoint of each of the H populations
@@ -90,6 +72,7 @@ plt.close()
 # Define a function which takes t, g, z, prec, p_at_t
 # Input the appropriate t value into the function
 
+#Reading data and returning data frames
 excel_file='/Users/lwoo0005/Documents/Laura_stuff/H_pylori_project/June_HP_mutations_compilation_p0.xlsx'
 sheet = 'Newest'
 
@@ -112,47 +95,57 @@ H3= df_collect_reps(excel_file, sheet, tpH1+10, tpH2+10, tpH3+10, tpH4+10, HGT, 
 
 H_list=list([H1, H2, H3])
 
+# Transformtion rates of interest
 g_true = float(ga)
 
 g_list = [g_true, 0.01, 0.001, 0.0001, 0.00001, 0.000001]
 
 z = 0
+# Timepoints of interest
 #t_list = [float(t) for t in list(H1.columns[0:4])]
 t_list = [float(t) for t in list(H1.columns[3:4])]
-
-# The numbers defined in the linear space can be determined by a formula
-# the paramters of which are given by the user-input prec value
-s = np.linspace(-1, 1, 50001)
-
-func1 = lambda s : (((z*s)+g)*(exp((s+g)*t))-(g*(1-z)))/(((z*s)+g)*(exp((s+g)*t))+(s*(1-z)))
-
+# Arbitrary timepoints
 t_fake=100
 fake_t_list=[10, 100, 500, 1000]
 
+# Numerically solving for trasformation rate
+# Range included in user-defined linear space
+s = np.linspace(-1, 1, 50001)
+
+# Bidirectional HGT function mapped to each value in the linear space
+func1 = lambda s : (((z*s)+g)*(exp((s+g)*t))-(g*(1-z)))/(((z*s)+g)*(exp((s+g)*t))+(s*(1-z)))
+
+# Detection threshold given by read coverage
 p_eq_read_limited = float(0.001)
 s_eq_read_limited = float(g_true)/(-1*p_eq_read_limited)
 
-#set to 1 in 1000000
-"""
-p_eq_drift_limited = float(0.000001)
-s_eq_drift_limited = float(g_true)/(-1*p_eq_drift_limited)
-"""
+# Any selection coefficient that is equal to or greater than the transformation (invasion) rate will fix
 s_eq_fix = g_true
 
+# Subplot boundaries
 xmin=s_eq_read_limited-0.1
 xmax=s_eq_fix+0.1
 
+# Widths of shaded regions to indicate boundaries of selection coefficient values that will have an equilibrium frequency
+# below experimental detection, an intermediate eqqilibrium frequency, and those which will fix.
 width1=abs(s_eq_read_limited-xmin)
 width2=abs(s_eq_fix-s_eq_read_limited)
 width3=abs(xmax-s_eq_fix)
 
+# Colours for plotting
 g_shade_list=[int(item) for item in list(np.linspace(60, 200, len(g_list)))]
 t_shade_list=[int(item) for item in list(np.linspace(60, 200, len(fake_t_list)))]
 sample_color_list=[cm.Oranges(150), cm.Purples(150), cm.Greens(150)]
 
+#Just making sure :)
 plt.close()
+
+# Setting up figure layout
 fig=plt.figure(figsize=(10,12))
 gs=GridSpec(2,2) # 2 rows, 2 columns
+
+# Depends on order of presentation of subplots
+# (selection coefficients last or first, respectively)
 """
 ax=fig.add_subplot(gs[0,0])
 ax2=fig.add_subplot(gs[0,1])
@@ -162,7 +155,7 @@ ax=fig.add_subplot(gs[1,0])
 ax2=fig.add_subplot(gs[1,1])
 ax3=fig.add_subplot(gs[0,0:2])
 
-
+# Calculations and plotting
 for g, shade in zip(g_list, g_shade_list):
     t=t_fake
     vals=func1(s)
@@ -174,15 +167,23 @@ for g, shade in zip(g_list, g_shade_list):
     ax.set_xlabel('Effective selection coefficient $(s_{e})$', fontsize=14)
     ax.set_ylabel("HGT allele frequency (P)", fontsize=14)
     ax.hlines(0,xmin=xmin,xmax=xmax, colors='grey', linestyles='dashed', lw=0.8)
+    
+    #Shading to indicate upper and lower estimates for selection coefficients, if desired
+    
     #rec1 = Rectangle([xmin,-0.002],height=1,width=width1)
     #rec2 = Rectangle([s_eq_read_limited,-0.002],height=1,width=width2)
     #rec3 = Rectangle([s_eq_fix,-0.002],height=1,width=width3)
     #rec = PatchCollection([rec1,rec2,rec3],facecolor=['red','orange','yellow'],alpha=0.04,edgecolor='none')
     #ax.add_collection(rec)
+
 bounds=[]
 for g in [ga_up, ga_down]:
     t=t_fake
     if g==0:
+        # Can't have negative tranformation rate
+        # If the lower boundary for the 95% CI of the transformation rate is negative,
+        # it is not possible to calculate an upper selection coefficient estimate
+        # --this value will always be 1.
         bound_vals=[0 for c in s]
     else:
         bound_vals=func1(s)
@@ -195,7 +196,8 @@ leg=ax.legend(prop={'size': 10}, fancybox=True, ncol=2, title='Invasion rate at 
 leg.get_frame().set_alpha(0.6)
 leg._legend_box.align = "left"
 leg.get_texts()[0].set_text('%.2E $\pm$ 95%% CI' % (g_true))
-#leg.get_texts()[-1].set_text('No invasion;\nmutation rate: %.0E' % (g_list[-1]))
+
+# Be sure to change title with order of presentation of figures
 ax.set_title('b)', loc='left', fontsize=14)
 
 #########
@@ -243,7 +245,8 @@ ax2.set_title('c)', loc='left', fontsize=14)
 def closest(lst, K):  
      idx = (np.abs(lst - K)).argmin() 
      return lst[idx] 
- 
+
+# Changed order of presentation of subplots, but kept old code to change back easily (commented out)
 """    
     
 H_num = 1
@@ -377,6 +380,9 @@ ax3.set_title('a)', loc='left', fontsize=14)
 ax3.set_xticks(range(1,len(H_genes)+1))
 ax3.set_xticklabels(H_genes, fontstyle='italic', rotation=75, fontsize=9)
 ax3.hlines(0,xmin=ax3.get_xlim()[0],xmax=ax3.get_xlim()[1], colors='grey', linestyles='dashed', lw=0.8)
+
+# Best subplot layout depends on order of presentation of plots.
+
 """
 plt.subplots_adjust(
 top=0.96,
