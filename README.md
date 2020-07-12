@@ -1,0 +1,4 @@
+# bidirectional-HGT-20
+Application of bidirectional HGT model extended from Novozhilov et al. (2005) to calculate transformation rate given putatively neutral allele frequency trajectory in H. pylori. This transformation rate is used to calculate the selection coefficients for a number of other HGT-derived alleles of interest. Displays plots showing estimated selection coefficients, expected allele frequency at a specified generation by selection coefficient given transformation rate, and expected allele frequency at experimental transformation rate by selection coefficient for a series of generation times.
+
+Some experimental data (neutal allele frequencies) are included as part of the code, but most data is read in from Excel sheet. The code is specific for this data set, but I aim to eventually generalize the code for use elsewhere.
